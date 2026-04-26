@@ -1,0 +1,42 @@
+# Omgevingsvariabelen — bevat echte wachtwoorden en sleutels
+.env
+.env.local
+.env.*.local
+
+# Claude Code interne bestanden
+.claude/
+
+# PHP logs en cache
+*.log
+/logs/
+/cache/
+/tmp/
+
+# Upload mappen (gebruikersdata, geen broncode)
+/uploads/
+/assets/uploads/
+
+# Composer dependencies (indien later toegevoegd)
+/vendor/
+composer.lock
+
+# Node modules (indien later toegevoegd)
+node_modules/
+package-lock.json
+
+# OS bestanden
+.DS_Store
+.DS_Store?
+Thumbs.db
+desktop.ini
+
+# IDE bestanden
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# PHP specifiek
+*.php~
+/error_log

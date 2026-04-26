@@ -1,0 +1,50 @@
+Options -Indexes
+RewriteEngine On
+
+# ── Mooie URL's → PHP-bestanden ──────────────────────────────
+
+# Bestaande bestanden en mappen: direct doorsturen
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# /toilet/42 → /toilet/index.php?id=42
+RewriteRule ^toilet/([0-9]+)/?$  /toilet/index.php?id=$1 [L,QSA]
+
+# /admin → /admin/index.php (al gedekt door DirectAdmin standaard)
+RewriteRule ^admin/?$            /admin/index.php         [L]
+
+# /coming-soon → /coming-soon.php
+RewriteRule ^coming-soon/?$      /coming-soon.php         [L]
+
+# /login → /login.php
+RewriteRule ^login/?$            /login.php               [L]
+
+# /register → /register.php
+RewriteRule ^register/?$         /register.php            [L]
+
+# /profiel → /profiel.php
+RewriteRule ^profiel/?$          /profiel.php             [L]
+
+# ── Beveiliging ───────────────────────────────────────────────
+
+# Verberg .htaccess zelf
+<Files ".htaccess">
+    Require all denied
+</Files>
+
+# Blokkeer directe toegang tot .env (credentials)
+<Files ".env">
+    Require all denied
+</Files>
+<Files ".env.example">
+    Require all denied
+</Files>
+
+# Verberg PHP-foutmeldingen in productie (stel in via php.ini)
+# php_flag display_errors Off
+
+# ── Cache-headers voor statische assets ──────────────────────
+<FilesMatch "\.(css|js|png|jpg|jpeg|gif|svg|ico|woff2?)$">
+    Header set Cache-Control "max-age=2592000, public"
+</FilesMatch>

@@ -31,7 +31,7 @@ include __DIR__ . '/../components/base-open.php';
 
 <!-- Lightbox -->
 <div id="lightbox"
-     style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+     style="display:none;position:fixed;inset:0;
             background:rgba(0,0,0,.88);z-index:9999;
             align-items:center;justify-content:center;
             flex-direction:column;cursor:zoom-out;overflow:hidden;">

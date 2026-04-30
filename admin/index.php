@@ -45,7 +45,7 @@ $l = [
         'cancel'           => 'Cancel',
         'siteTitle'        => 'Site settings',
         'tabMailtemplates' => 'Mail templates',
-        'smtpTitle'        => 'SMTP settings',
+        'smtpTitle'        => 'E-mail via Brevo',
         'approve'          => 'Approve',
         'reject'           => 'Reject',
         'blockUser'        => 'Block user',
@@ -96,7 +96,7 @@ $l = [
         'cancel'           => 'Annuleren',
         'siteTitle'        => 'Site-instellingen',
         'tabMailtemplates' => 'Mailtemplates',
-        'smtpTitle'        => 'SMTP-instellingen',
+        'smtpTitle'        => 'E-mail via Brevo',
         'approve'          => 'Goedkeuren',
         'reject'           => 'Afkeuren',
         'blockUser'        => 'Blokkeer gebruiker',
@@ -147,7 +147,7 @@ $l = [
         'cancel'           => 'Annuler',
         'siteTitle'        => 'Paramètres du site',
         'tabMailtemplates' => 'Modèles de mail',
-        'smtpTitle'        => 'Paramètres SMTP',
+        'smtpTitle'        => 'E-mail via Brevo',
         'approve'          => 'Approuver',
         'reject'           => 'Rejeter',
         'blockUser'        => 'Bloquer l\'utilisateur',
@@ -896,55 +896,39 @@ include __DIR__ . '/../components/base-open.php';
 
   // ── Tab: Site-instellingen ──────────────────────────────────
   async function loadSiteSettings() {
-    // SMTP
+    // Brevo e-mail instellingen
     const smtpRes  = await fetch('/api/admin/get-smtp-settings.php', { credentials: 'include' });
     const smtp     = smtpRes.ok ? await smtpRes.json() : {};
     document.getElementById('smtp-settings-content').innerHTML = `
       <div class="bg-white rounded-xl border border-slate-200 p-5 mb-6">
-        <h3 class="font-semibold text-sm text-[#003f8a] mb-4">📧 SMTP-instellingen</h3>
+        <h3 class="font-semibold text-sm text-[#003f8a] mb-1">📧 E-mail via Brevo</h3>
+        <p class="text-xs text-slate-500 mb-4">Transactionele e-mails worden verstuurd via de Brevo API.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs font-semibold text-slate-600">Host</label>
-            <input id="smtp-host" value="${smtp.smtp_host ?? ''}" placeholder="smtp.example.com"
-                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-slate-600">Poort</label>
-            <input id="smtp-port" value="${smtp.smtp_port ?? '587'}" placeholder="587"
-                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-slate-600">Gebruikersnaam</label>
-            <input id="smtp-user" value="${smtp.smtp_user ?? ''}"
-                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-slate-600">Wachtwoord ${smtp.has_password ? '(ingesteld — leeg laten = niet wijzigen)' : ''}</label>
-            <input id="smtp-pass" type="password" placeholder="${smtp.has_password ? '••••••••' : 'Voer wachtwoord in'}"
-                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-slate-600">Beveiliging</label>
-            <select id="smtp-secure" class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none bg-white">
-              <option value="tls" ${smtp.smtp_secure === 'tls' ? 'selected' : ''}>TLS (aanbevolen)</option>
-              <option value="ssl" ${smtp.smtp_secure === 'ssl' ? 'selected' : ''}>SSL</option>
-              <option value="" ${!smtp.smtp_secure ? 'selected' : ''}>Geen</option>
-            </select>
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-slate-600">Brevo API-sleutel ${smtp.has_api_key ? '(ingesteld — leeg laten = niet wijzigen)' : ''}</label>
+            <input id="brevo-api-key" type="password" placeholder="${smtp.has_api_key ? '••••••••' : 'xkeysib-...'}"
+                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a] font-mono">
           </div>
           <div>
             <label class="text-xs font-semibold text-slate-600">Naam afzender</label>
             <input id="smtp-from-name" value="${smtp.smtp_from_name ?? 'DLPWC'}"
                    class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
           </div>
-          <div class="sm:col-span-2">
+          <div>
             <label class="text-xs font-semibold text-slate-600">E-mail afzender</label>
             <input id="smtp-from-email" type="email" value="${smtp.smtp_from_email ?? ''}"
                    class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
           </div>
+          <div class="sm:col-span-2">
+            <label class="text-xs font-semibold text-slate-600">Admin notificatie-e-mail</label>
+            <input id="admin-notification-email" type="email" value="${smtp.admin_notification_email ?? 'info@dlpwc.com'}"
+                   class="w-full border rounded-lg px-3 py-2 text-sm mt-1 focus:outline-none focus:border-[#003f8a]">
+            <p class="text-xs text-slate-400 mt-1">Adres dat notificaties ontvangt (nieuwe gebruikers, nieuwe reviews, …)</p>
+          </div>
         </div>
         <div id="smtp-msg" class="hidden text-sm rounded-lg px-3 py-2 mt-3"></div>
         <button id="save-smtp" class="mt-4 bg-[#003f8a] text-white px-5 py-2 rounded-lg text-sm font-semibold hover:opacity-90">
-          💾 SMTP opslaan
+          💾 Opslaan
         </button>
         <div class="mt-4 pt-4 border-t border-slate-100">
           <p class="text-xs font-semibold text-slate-600 mb-2">🧪 Testmail versturen</p>
@@ -961,13 +945,10 @@ include __DIR__ . '/../components/base-open.php';
 
     document.getElementById('save-smtp').onclick = async () => {
       const payload = {
-        smtp_host:       document.getElementById('smtp-host').value.trim(),
-        smtp_port:       document.getElementById('smtp-port').value.trim(),
-        smtp_user:       document.getElementById('smtp-user').value.trim(),
-        smtp_pass:       document.getElementById('smtp-pass').value,
-        smtp_secure:     document.getElementById('smtp-secure').value,
-        smtp_from_name:  document.getElementById('smtp-from-name').value.trim(),
-        smtp_from_email: document.getElementById('smtp-from-email').value.trim(),
+        brevo_api_key:             document.getElementById('brevo-api-key').value,
+        smtp_from_name:            document.getElementById('smtp-from-name').value.trim(),
+        smtp_from_email:           document.getElementById('smtp-from-email').value.trim(),
+        admin_notification_email:  document.getElementById('admin-notification-email').value.trim(),
       };
       const r = await fetch('/api/admin/save-smtp-settings.php', {
         method: 'POST', headers: csrfHeaders(),
@@ -975,12 +956,12 @@ include __DIR__ . '/../components/base-open.php';
       });
       const result = await r.json();
       const msg = document.getElementById('smtp-msg');
-      msg.textContent = result.success ? '✅ SMTP opgeslagen' : '⚠️ ' + (result.error ?? 'Fout');
+      msg.textContent = result.success ? '✅ Opgeslagen' : '⚠️ ' + (result.error ?? 'Fout');
       msg.className = result.success
         ? 'text-sm rounded-lg px-3 py-2 bg-green-50 text-green-700 border border-green-200'
         : 'text-sm rounded-lg px-3 py-2 bg-red-50 text-red-700 border border-red-200';
       msg.classList.remove('hidden');
-      if (result.success) document.getElementById('smtp-pass').value = '';
+      if (result.success) document.getElementById('brevo-api-key').value = '';
     };
 
     document.getElementById('send-test-smtp').onclick = async () => {

@@ -1,6 +1,6 @@
 <?php
 /**
- * DLPWC Mailer — leest templates uit DB en verstuurt via SMTP of mail().
+ * DLPWC Mailer — leest templates uit DB en verstuurt via Brevo API.
  * Gebruik: dlpwc_send_mail($pdo, $toEmail, $toName, $templateKey, $lang, $vars)
  */
 
@@ -25,44 +25,18 @@ function dlpwc_send_mail($pdo, $toEmail, $toName, $templateKey, $lang, $vars = [
     $subject = _dlpwc_replace_vars($tpl['subject'], $vars);
     $body    = _dlpwc_replace_vars($tpl['body'],    $vars);
 
-    // ── SMTP-instellingen ophalen ──────────────────────────────────
+    // ── Brevo-instellingen ophalen ─────────────────────────────────
     $rows = $pdo->query(
         "SELECT setting_key, setting_value FROM site_settings
-         WHERE setting_key IN ('smtp_host','smtp_port','smtp_user','smtp_pass_enc',
-                               'smtp_secure','smtp_from_name','smtp_from_email')"
+         WHERE setting_key IN ('brevo_api_key','smtp_from_name','smtp_from_email')"
     )->fetchAll(PDO::FETCH_KEY_PAIR);
 
+    $apiKey    = $rows['brevo_api_key']   ?? '';
     $fromEmail = $rows['smtp_from_email'] ?? '';
     $fromName  = $rows['smtp_from_name']  ?? 'DLPWC';
-    $host      = $rows['smtp_host']       ?? '';
 
-    // Wachtwoord ontcijferen
-    $rawPass = '';
-    if (!empty($rows['smtp_pass_enc'])) {
-        if (!defined('DLPWC_CONFIG')) define('DLPWC_CONFIG', true);
-        $configFile = __DIR__ . '/../config.php';
-        if (file_exists($configFile)) require_once $configFile;
-        if (defined('SMTP_ENC_KEY')) {
-            // IV (16 bytes) is opgeslagen vóór de ciphertext; beide zijn raw binary, base64-encoded
-            $raw    = base64_decode($rows['smtp_pass_enc']);
-            $iv     = substr($raw, 0, 16);
-            $cipher = substr($raw, 16);
-            $dec    = openssl_decrypt($cipher, 'AES-256-CBC', SMTP_ENC_KEY, OPENSSL_RAW_DATA, $iv);
-            $rawPass = ($dec !== false) ? $dec : '';
-        }
-    }
-
-    if ($host && $fromEmail && $rawPass) {
-        return _dlpwc_smtp_send(
-            $host,
-            (int)($rows['smtp_port']   ?? 587),
-            $rows['smtp_secure']       ?? 'tls',
-            $rows['smtp_user']         ?? '',
-            $rawPass,
-            $fromEmail, $fromName,
-            $toEmail,   $toName,
-            $subject,   $body
-        );
+    if ($apiKey && $fromEmail) {
+        return _dlpwc_brevo_send($apiKey, $fromEmail, $fromName, $toEmail, $toName, $subject, $body);
     }
 
     // ── Fallback: PHP mail() ───────────────────────────────────────
@@ -81,82 +55,41 @@ function _dlpwc_replace_vars($text, $vars) {
     return $text;
 }
 
-function _dlpwc_smtp_send($host, $port, $secure, $user, $pass, $fromEmail, $fromName, $toEmail, $toName, $subject, $body) {
-    $prefix  = ($secure === 'ssl') ? 'ssl://' : '';
-    $timeout = 15;
+function _dlpwc_brevo_send($apiKey, $fromEmail, $fromName, $toEmail, $toName, $subject, $body) {
+    $payload = json_encode([
+        'sender'      => ['name' => $fromName, 'email' => $fromEmail],
+        'to'          => [['email' => $toEmail, 'name' => $toName ?: $toEmail]],
+        'subject'     => $subject,
+        'htmlContent' => $body,
+    ]);
 
-    $sock = @fsockopen($prefix . $host, $port, $errno, $errstr, $timeout);
-    if (!$sock) return false;
+    $context = stream_context_create([
+        'http' => [
+            'method'        => 'POST',
+            'header'        => "Content-Type: application/json\r\nAccept: application/json\r\napi-key: " . $apiKey,
+            'content'       => $payload,
+            'timeout'       => 15,
+            'ignore_errors' => true,
+        ],
+    ]);
 
-    stream_set_timeout($sock, $timeout);
+    @file_get_contents('https://api.brevo.com/v3/smtp/email', false, $context);
 
-    $read = function() use ($sock) {
-        $data = '';
-        while (!feof($sock)) {
-            $line = fgets($sock, 515);
-            if ($line === false) break;
-            $data .= $line;
-            if (strlen($line) >= 4 && $line[3] === ' ') break;
-        }
-        return (int)substr($data, 0, 3);
-    };
-
-    $cmd = function($c) use ($sock, $read) {
-        fwrite($sock, $c . "\r\n");
-        return $read();
-    };
-
-    $greeting = $read();
-    if ($greeting !== 220) { fclose($sock); return false; }
-
-    $localHost = gethostname() ?: 'localhost';
-    $cmd('EHLO ' . $localHost);
-
-    if ($secure === 'tls') {
-        $code = $cmd('STARTTLS');
-        if ($code !== 220) { fclose($sock); return false; }
-        if (!stream_socket_enable_crypto($sock, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
-            fclose($sock); return false;
-        }
-        $cmd('EHLO ' . $localHost);
-    }
-
-    $cmd('AUTH LOGIN');
-    $cmd(base64_encode($user));
-    $code = $cmd(base64_encode($pass));
-    if ($code !== 235) { fclose($sock); return false; }
-
-    $cmd("MAIL FROM:<$fromEmail>");
-    $cmd("RCPT TO:<$toEmail>");
-    $cmd('DATA');
-
-    $encSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-    $encFrom    = '=?UTF-8?B?' . base64_encode($fromName) . '?= <' . $fromEmail . '>';
-    $encTo      = $toName ? ('=?UTF-8?B?' . base64_encode($toName) . '?= <' . $toEmail . '>') : $toEmail;
-
-    $msg  = "Date: " . date('r') . "\r\n";
-    $msg .= "From: $encFrom\r\n";
-    $msg .= "To: $encTo\r\n";
-    $msg .= "Subject: $encSubject\r\n";
-    $msg .= "MIME-Version: 1.0\r\n";
-    $msg .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $msg .= "Content-Transfer-Encoding: base64\r\n\r\n";
-    $msg .= chunk_split(base64_encode($body));
-    $msg .= "\r\n.\r\n";
-
-    fwrite($sock, $msg);
-    $read();
-    $cmd('QUIT');
-    fclose($sock);
-    return true;
+    if (!isset($http_response_header[0])) return false;
+    $status = (int)preg_replace('/^HTTP\/\S+ (\d+).*/', '$1', $http_response_header[0]);
+    return $status >= 200 && $status < 300;
 }
 
 /**
- * Haal het e-mailadres van de eerste admin op uit de database.
+ * Haal het admin-notificatie-e-mailadres op (instelling of standaard).
  */
 function dlpwc_get_admin_email($pdo) {
     $row = $pdo->query(
-        "SELECT email, name FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1"
+        "SELECT setting_value FROM site_settings WHERE setting_key = 'admin_notification_email' LIMIT 1"
     )->fetch(PDO::FETCH_ASSOC);
-    return $row ?: null;
+
+    $email = $row ? trim($row['setting_value']) : '';
+    if (!$email) $email = 'info@dlpwc.com';
+
+    return ['email' => $email, 'name' => 'DLPWC Admin'];
 }

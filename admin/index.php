@@ -407,6 +407,40 @@ include __DIR__ . '/../components/base-open.php';
   </div><!-- /admin-scroll -->
 </div><!-- /admin-panel -->
 
+<!-- Mail Preview Modal -->
+<div id="mail-preview-modal"
+     class="fixed inset-0 bg-black/60 z-[9999] hidden items-center justify-center p-4"
+     style="display:none;">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+    <!-- Modal header -->
+    <div class="flex items-start justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
+      <div class="min-w-0 pr-4">
+        <div class="flex items-center gap-2 mb-1">
+          <span id="preview-flag" class="text-lg leading-none"></span>
+          <span id="preview-template-label" class="font-semibold text-sm text-[#003f8a] truncate"></span>
+        </div>
+        <div class="flex items-center gap-1 text-xs text-slate-500">
+          <span class="font-medium text-slate-400">Onderwerp:</span>
+          <span id="preview-subject" class="font-semibold text-slate-700"></span>
+        </div>
+      </div>
+      <button id="close-preview-modal"
+              class="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full
+                     text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition text-lg font-bold leading-none">
+        ✕
+      </button>
+    </div>
+    <!-- Mail body -->
+    <div class="flex-1 overflow-auto p-5">
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+        <pre id="preview-body"
+             class="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed"></pre>
+      </div>
+      <p class="text-xs text-slate-400 mt-3 italic">* Variabelen zijn vervangen door voorbeeldwaarden.</p>
+    </div>
+  </div>
+</div>
+
 <!-- Leaflet (voor admin-kaart) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -1090,6 +1124,44 @@ include __DIR__ . '/../components/base-open.php';
     review_pending:       '{{name}}, {{toilet}}',
     review_approved:      '{{name}}, {{toilet}}, {{score}}',
   };
+  const MAIL_SAMPLE_DATA = {
+    new_user_admin:       { name: 'Jan de Vries', email: 'jan@voorbeeld.nl', username: 'jandevries' },
+    registration_confirm: { name: 'Jan de Vries', username: 'jandevries' },
+    new_review_admin:     { toilet: 'WC Hoofdingang Park', reviewer: 'jandevries', score: '4.2' },
+    review_pending:       { name: 'Jan de Vries', toilet: 'WC Hoofdingang Park' },
+    review_approved:      { name: 'Jan de Vries', toilet: 'WC Hoofdingang Park', score: '4.2' },
+  };
+  const FLAG_OF = { nl: '🇳🇱', en: '🇬🇧', fr: '🇫🇷' };
+
+  // ── Mail Preview Modal ──────────────────────────────────────
+  const previewModal   = document.getElementById('mail-preview-modal');
+  const closePreviewBtn = document.getElementById('close-preview-modal');
+
+  function openMailPreview(key, lang, subject, body) {
+    const sample = MAIL_SAMPLE_DATA[key] ?? {};
+    function replaceSample(str) {
+      return str.replace(/\{\{(\w+)\}\}/g, (_, v) => sample[v] ?? `{{${v}}}`);
+    }
+    document.getElementById('preview-flag').textContent            = FLAG_OF[lang] ?? '';
+    document.getElementById('preview-template-label').textContent  = `${MAIL_TEMPLATE_LABELS[key]} — ${lang.toUpperCase()}`;
+    document.getElementById('preview-subject').textContent         = replaceSample(subject) || '(geen onderwerp)';
+    document.getElementById('preview-body').textContent            = replaceSample(body)    || '(geen inhoud)';
+    previewModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMailPreview() {
+    previewModal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  closePreviewBtn.addEventListener('click', closeMailPreview);
+  previewModal.addEventListener('click', (e) => {
+    if (e.target === previewModal) closeMailPreview();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && previewModal.style.display === 'flex') closeMailPreview();
+  });
 
   async function loadMailTemplates() {
     const el = document.getElementById('mailtemplates-content');
@@ -1100,7 +1172,6 @@ include __DIR__ . '/../components/base-open.php';
 
     const keys = Object.keys(MAIL_TEMPLATE_LABELS);
     const langs = ['nl', 'en', 'fr'];
-    const flagOf = { nl: '🇳🇱', en: '🇬🇧', fr: '🇫🇷' };
 
     el.innerHTML = `
       <div class="flex flex-col gap-6">
@@ -1113,7 +1184,15 @@ include __DIR__ . '/../components/base-open.php';
                 const tpl = (data[key] && data[key][lang]) || { subject: '', body: '' };
                 return `
                   <div>
-                    <div class="text-xs font-semibold text-slate-500 mb-1">${flagOf[lang]} ${lang.toUpperCase()}</div>
+                    <div class="flex items-center justify-between mb-1">
+                      <div class="text-xs font-semibold text-slate-500">${FLAG_OF[lang]} ${lang.toUpperCase()}</div>
+                      <button class="tpl-preview-btn flex items-center gap-1 text-xs bg-slate-100 text-slate-600
+                                     px-2.5 py-1 rounded-lg hover:bg-[#003f8a] hover:text-white transition font-medium"
+                              data-key="${key}" data-lang="${lang}"
+                              title="Preview van deze mailtemplate bekijken">
+                        👁️ Preview
+                      </button>
+                    </div>
                     <input class="tpl-subject w-full border rounded-lg px-3 py-1.5 text-sm mb-1 focus:outline-none focus:border-[#003f8a]"
                            data-key="${key}" data-lang="${lang}"
                            placeholder="Onderwerp" value="${(tpl.subject||'').replace(/"/g,'&quot;')}">
@@ -1130,6 +1209,17 @@ include __DIR__ . '/../components/base-open.php';
             </div>
           </div>`).join('')}
       </div>`;
+
+    // Preview-knop event delegation
+    el.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tpl-preview-btn');
+      if (!btn) return;
+      const key  = btn.dataset.key;
+      const lang = btn.dataset.lang;
+      const subject = el.querySelector(`.tpl-subject[data-key="${key}"][data-lang="${lang}"]`).value;
+      const body    = el.querySelector(`.tpl-body[data-key="${key}"][data-lang="${lang}"]`).value;
+      openMailPreview(key, lang, subject, body);
+    });
 
     el.querySelectorAll('.tpl-save-btn').forEach(btn => {
       btn.addEventListener('click', async () => {

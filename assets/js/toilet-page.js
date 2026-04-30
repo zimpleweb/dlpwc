@@ -930,10 +930,12 @@
   let _lbImages = [], _lbIdx = 0;
 
   window.openLightbox = function (images, startIdx) {
+    const lb = document.getElementById('lightbox');
+    if (lb && lb.parentNode !== document.body) document.body.appendChild(lb);
     _lbImages = images;
     _lbIdx    = startIdx;
     _lbShow();
-    document.getElementById('lightbox').style.display = 'flex';
+    lb.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   };
 

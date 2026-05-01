@@ -40,7 +40,10 @@ if ($_FILES['photo']['size'] > 5 * 1024 * 1024) {
 
 $ext      = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$mime];
 $dir      = __DIR__ . '/../../uploads/editorial/';
-if (!is_dir($dir)) mkdir($dir, 0755, true);
+if (!is_dir($dir)) {
+    mkdir($dir, 0755, true);
+    file_put_contents($dir . '.htaccess', "Options -ExecCGI\nAddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .rb .cgi\nOptions -Indexes\n");
+}
 
 // Verwijder oude foto eerst
 $stmt = $pdo->prepare("SELECT editorial_photo FROM toilets WHERE id = :id");

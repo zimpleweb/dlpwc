@@ -22,7 +22,10 @@ if ($_FILES['avatar']['size'] > 2 * 1024 * 1024) {
 
 $ext      = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'][$mime];
 $dir      = __DIR__ . '/../uploads/avatars/';
-if (!is_dir($dir)) mkdir($dir, 0755, true);
+if (!is_dir($dir)) {
+    mkdir($dir, 0755, true);
+    file_put_contents($dir . '.htaccess', "Options -ExecCGI\nAddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .rb .cgi\nOptions -Indexes\n");
+}
 
 // Verwijder oude avatar
 $old = $pdo->prepare("SELECT avatar_url FROM users WHERE id = :id");

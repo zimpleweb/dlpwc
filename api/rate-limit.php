@@ -5,7 +5,7 @@
  */
 function rateLimitOrDie(string $key, int $maxAttempts, int $windowSeconds): void {
     $ip      = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
-    $sessKey = 'rl_' . $key . '_' . md5($ip);
+    $sessKey = 'rl_' . $key . '_' . hash('sha256', $ip);
     $now     = time();
 
     if (!isset($_SESSION[$sessKey])) {

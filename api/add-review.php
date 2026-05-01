@@ -158,7 +158,10 @@ $hasPhotos = false;
 
 if (!empty($_FILES['images']['name'][0])) {
     $uploadDir = __DIR__ . '/../uploads/reviews/';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+        file_put_contents($uploadDir . '.htaccess', "Options -ExecCGI\nAddHandler cgi-script .php .php3 .php4 .php5 .phtml .pl .py .rb .cgi\nOptions -Indexes\n");
+    }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
 
     foreach ($_FILES['images']['tmp_name'] as $i => $tmpName) {

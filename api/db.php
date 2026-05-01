@@ -25,6 +25,7 @@ header('Content-Type: application/json');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
+header("Content-Security-Policy: default-src 'none'");
 
 // ── CORS: alleen eigen domein + localhost (dev) ───────────────────────────────
 $appDomain = rtrim(getenv('APP_DOMAIN') ?: '', '/');
